@@ -23,7 +23,6 @@ import (
 	internal_authz "github.com/zitadel/zitadel/internal/api/authz"
 	"github.com/zitadel/zitadel/internal/api/http"
 	"github.com/zitadel/zitadel/internal/api/oidc"
-	"github.com/zitadel/zitadel/internal/api/ui/login"
 	auth_es "github.com/zitadel/zitadel/internal/auth/repository/eventsourcing"
 	auth_handler "github.com/zitadel/zitadel/internal/auth/repository/eventsourcing/handler"
 	auth_view "github.com/zitadel/zitadel/internal/auth/repository/eventsourcing/view"
@@ -103,7 +102,9 @@ type ProjectionsConfig struct {
 	SystemAuthZ     internal_authz.Config
 	SystemDefaults  systemdefaults.SystemDefaults
 	Telemetry       *handlers.TelemetryPusherConfig
-	Login           login.Config
+	Login           struct {
+		DefaultPaths *domain.DefaultPaths
+	}
 	OIDC            oidc.Config
 	WebAuthNName    string
 	DefaultInstance command.InstanceSetup

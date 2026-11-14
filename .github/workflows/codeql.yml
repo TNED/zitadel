@@ -4,14 +4,10 @@ on:
   push:
     branches:
     -  'main'
-    paths-ignore:
-    - 'apps/docs/content/**'
   pull_request:
     # The branches below must be a subset of the branches above
     branches:
     -  'main'
-    paths-ignore:
-    - 'apps/docs/content/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -58,7 +54,6 @@ jobs:
     #    uses a compiled language
 
     # autobuild does not work anymore
-    # and to be able to compile without an actual console build, we just need a placeholder in the console dist folder
     - name: Autobuild
       uses: github/codeql-action/autobuild@v3
     - name: Perform CodeQL Analysis

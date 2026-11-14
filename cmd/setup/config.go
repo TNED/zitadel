@@ -21,7 +21,6 @@ import (
 	"github.com/zitadel/zitadel/internal/api/authz"
 	"github.com/zitadel/zitadel/internal/api/http"
 	"github.com/zitadel/zitadel/internal/api/oidc"
-	"github.com/zitadel/zitadel/internal/api/ui/login"
 	"github.com/zitadel/zitadel/internal/cache/connector"
 	"github.com/zitadel/zitadel/internal/command"
 	"github.com/zitadel/zitadel/internal/config/hook"
@@ -61,11 +60,15 @@ type Config struct {
 	InitProjections InitProjections
 	AssetStorage    static_config.AssetStorageConfig
 	OIDC            oidc.Config
-	Login           login.Config
+	Login           LoginConfig
 	WebAuthNName    string
 	Telemetry       *handlers.TelemetryPusherConfig
 	SystemAPIUsers  map[string]*authz.SystemAPIUser
 	HTTPClient      http.ClientConfig
+}
+
+type LoginConfig struct {
+	DefaultPaths *domain.DefaultPaths
 }
 
 type InitProjections struct {

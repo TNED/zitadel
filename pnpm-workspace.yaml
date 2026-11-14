@@ -1,6 +1,4 @@
 packages:
-  - console
-  - tests/*
   - packages/*
   - apps/*
   - deploy/compose

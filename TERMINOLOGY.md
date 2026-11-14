@@ -17,15 +17,9 @@ All user-facing wording in docs, UI, and API descriptions must follow this table
 
 | Scope | Files |
 |-------|-------|
-| UI | Console (`console/src/assets/i18n/`) and Login UI (`apps/login/locales/`) |
-| UI + Docs | UI files plus documentation content (`apps/docs/content/`) |
-| UI dialogs | Subset of UI: modal and confirmation dialog strings |
-| UI section | Subset of UI: labels tied to a specific page section |
-| UI indicator | Subset of UI: inline status or indicator labels |
-| UI notifications | Subset of UI: toast, banner, and notification strings |
-| Docs | Documentation content (`apps/docs/content/`) |
 | API | Proto files and API description/comment text (`proto/**`) |
-| Everywhere | UI + Docs + API |
+| Backend | Go internal domain and service logic (`internal/**`) |
+| Everywhere | API + Backend |
 | — | Internal only — no user-facing file scope |
 
 ## Canonical Terminology Table

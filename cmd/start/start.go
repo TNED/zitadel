@@ -82,9 +82,6 @@ import (
 	"github.com/zitadel/zitadel/internal/api/saml"
 	"github.com/zitadel/zitadel/internal/api/scim"
 	"github.com/zitadel/zitadel/internal/api/scim/schemas"
-	"github.com/zitadel/zitadel/internal/api/ui/console"
-	"github.com/zitadel/zitadel/internal/api/ui/console/path"
-	"github.com/zitadel/zitadel/internal/api/ui/login"
 	"github.com/zitadel/zitadel/internal/api/well_known"
 	auth_es "github.com/zitadel/zitadel/internal/auth/repository/eventsourcing"
 	"github.com/zitadel/zitadel/internal/authz"
@@ -116,6 +113,9 @@ import (
 	"github.com/zitadel/zitadel/internal/queue"
 	"github.com/zitadel/zitadel/internal/serviceping"
 	"github.com/zitadel/zitadel/internal/static"
+	"github.com/zitadel/zitadel/internal/storage"
+	"github.com/zitadel/zitadel/internal/storage/bootstrap"
+	"github.com/zitadel/zitadel/internal/storage/migration"
 	es_v4 "github.com/zitadel/zitadel/internal/v2/eventstore"
 	es_v4_pg "github.com/zitadel/zitadel/internal/v2/eventstore/postgres"
 	"github.com/zitadel/zitadel/internal/webauthn"
@@ -183,6 +183,20 @@ func startZitadel(ctx context.Context, config *Config, masterKey string, server 
 	if err != nil {
 		return fmt.Errorf("cannot start DB client for queries: %w", err)
 	}
+
+	if config.AutoMigrate {
+		logging.Info(ctx, "running automatic database migration and bootstrap...")
+		runner := migration.NewRunner(dbClient.DB, storage.DialectPostgres)
+		if err := runner.Run(ctx); err != nil {
+			return fmt.Errorf("database auto-migration failed: %w", err)
+		}
+		boot := bootstrap.NewBootstrapper(dbClient.DB, storage.DialectPostgres, bootstrap.DefaultConfig())
+		if err := boot.EnsureInitialized(ctx); err != nil {
+			return fmt.Errorf("database auto-bootstrap failed: %w", err)
+		}
+		logging.Info(ctx, "database auto-migration and bootstrap completed successfully")
+	}
+
 	database.RegisterPoolMetrics(ctx, dbClient.Pool)
 	new_domain.SetPool(v3_postgres.PGxPool(dbClient.Pool))
 
@@ -623,7 +637,7 @@ func startAPIs(
 		return nil, err
 	}
 
-	instanceInterceptor := middleware.InstanceInterceptor(queries, config.ExternalDomain, translator, login.IgnoreInstanceEndpoints...)
+	instanceInterceptor := middleware.InstanceInterceptor(queries, config.ExternalDomain, translator)
 	assetsCache := middleware.AssetsCacheInterceptor(config.AssetStorage.Cache.MaxAge, config.AssetStorage.Cache.SharedMaxAge)
 	apis.RegisterHandlerOnPrefix(assets.HandlerPrefix, assets.NewHandler(
 		commands,
@@ -647,7 +661,7 @@ func startAPIs(
 
 	apis.RegisterHandlerOnPrefix(idp.HandlerPrefix, idp.NewHandler(commands, queries, keys.IDPConfig, instanceInterceptor.Handler, federatedLogoutsCache))
 
-	userAgentInterceptor, err := middleware.NewUserAgentHandler(config.UserAgentCookie, keys.UserAgentCookieKey, id.SonyFlakeGenerator(), config.ExternalSecure, login.EndpointResources, login.EndpointExternalLoginCallbackFormPost, login.EndpointSAMLACS)
+	userAgentInterceptor, err := middleware.NewUserAgentHandler(config.UserAgentCookie, keys.UserAgentCookieKey, id.SonyFlakeGenerator(), config.ExternalSecure)
 	if err != nil {
 		return nil, err
 	}
@@ -672,7 +686,7 @@ func startAPIs(
 	oidcServer, err := oidc.NewServer(
 		ctx,
 		config.OIDC,
-		login.DefaultLoggedOutPath,
+		"/signedout",
 		config.ExternalSecure,
 		commands,
 		queries,
@@ -726,41 +740,6 @@ func startAPIs(
 			translator,
 			instanceInterceptor.HandlerFuncWithError,
 			middleware.AuthorizationInterceptor(verifier, config.SystemAuthZ, config.InternalAuthZ).HandlerFuncWithError(schemas.HandlerPrefix)))
-
-	c, err := console.Start(config.Console, oidcServer.IssuerFromRequest, middleware.CallDurationHandler, instanceInterceptor.Handler, limitingAccessInterceptor, config.CustomerPortal)
-	if err != nil {
-		return nil, fmt.Errorf("unable to start management console: %w", err)
-	}
-	apis.RegisterHandlerOnPrefix(path.HandlerPrefix, c)
-	managementConsolePath := path.HandlerPrefix + "/"
-	l, err := login.CreateLogin(
-		config.Login,
-		commands,
-		queries,
-		authRepo,
-		store,
-		managementConsolePath,
-		oidcServer.AuthCallbackURL(),
-		samlProvider.AuthCallbackURL(),
-		config.ExternalSecure,
-		userAgentInterceptor,
-		op.NewIssuerInterceptor(oidcServer.IssuerFromRequest).Handler,
-		provider.NewIssuerInterceptor(samlProvider.IssuerFromRequest).Handler,
-		instanceInterceptor.Handler,
-		assetsCache.Handler,
-		limitingAccessInterceptor.WithRedirect(managementConsolePath).Handle,
-		keys.User,
-		keys.IDPConfig,
-		keys.CSRFCookieKey,
-		cacheConnectors,
-		federatedLogoutsCache,
-		httpClient,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("unable to start login: %w", err)
-	}
-	apis.RegisterHandlerOnPrefix(login.HandlerPrefix, l.Handler())
-	apis.HandleFunc(login.EndpointDeviceAuth, login.RedirectDeviceAuthToPrefix)
 
 	// After OIDC provider so that the callback endpoint can be used
 	if err := apis.RegisterService(ctx, oidc_v2beta.CreateServer(commands, queries, oidcServer, config.ExternalSecure)); err != nil {
@@ -828,18 +807,21 @@ func showBasicInformation(startConfig *Config) {
 		http = "https"
 	}
 
-	managementConsoleURL := fmt.Sprintf("%s://%s:%v/ui/console\n", http, startConfig.ExternalDomain, startConfig.ExternalPort)
+	apiBaseURL := fmt.Sprintf("%s://%s:%v\n", http, startConfig.ExternalDomain, startConfig.ExternalPort)
 	healthCheckURL := fmt.Sprintf("%s://%s:%v/debug/healthz\n", http, startConfig.ExternalDomain, startConfig.ExternalPort)
+	openAPIURL := fmt.Sprintf("%s://%s:%v/openapi/v2/swagger\n", http, startConfig.ExternalDomain, startConfig.ExternalPort)
 	machineIdMethod := id.MachineIdentificationMethod()
 
 	insecure := !startConfig.TLS.Enabled && !startConfig.ExternalSecure
 
 	fmt.Printf(" ===============================================================\n\n")
 	fmt.Printf(" Version          		: %s\n", build.Version())
+	fmt.Printf(" Mode             		: Headless IAM API Service\n")
 	fmt.Printf(" TLS enabled      		: %v\n", startConfig.TLS.Enabled)
 	fmt.Printf(" External Secure 		: %v\n", startConfig.ExternalSecure)
 	fmt.Printf(" Machine Id Method		: %v\n", machineIdMethod)
-	fmt.Printf(" Management Console URL	: %s", color.BlueString(managementConsoleURL))
+	fmt.Printf(" API Base URL     		: %s", color.BlueString(apiBaseURL))
+	fmt.Printf(" OpenAPI Spec URL 		: %s", color.BlueString(openAPIURL))
 	fmt.Printf(" Health Check URL 		: %s", color.BlueString(healthCheckURL))
 	if insecure {
 		fmt.Printf("\n %s: you're using plain http without TLS. Be aware this is \n", color.RedString("Warning"))

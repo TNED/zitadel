@@ -18,6 +18,7 @@ func init() {
 	startFlagSet.Uint16("port", 0, "port to run ZITADEL on")
 	startFlagSet.String("externalDomain", "", "domain ZITADEL will be exposed on")
 	startFlagSet.String("externalPort", "", "port ZITADEL will be exposed on")
+	startFlagSet.Bool("auto-migrate", false, "automatically run database migrations and declarative bootstrap on startup")
 }
 
 func startFlags(cmd *cobra.Command) {

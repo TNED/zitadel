@@ -44,8 +44,6 @@ jobs:
       semantic_version: "23.0.7"
       image_name_github_api: "ghcr.io/zitadel/zitadel"
       image_name_google_api: "europe-docker.pkg.dev/zitadel-common/zitadel-repo/zitadel"
-      image_name_github_login: "ghcr.io/zitadel/zitadel-login"
-      image_name_google_login: "europe-docker.pkg.dev/zitadel-common/zitadel-repo/zitadel-login"
 
   release:
     uses: ./.github/workflows/release.yml
@@ -66,5 +64,3 @@ jobs:
       semantic_version: "23.0.7"
       image_name_github_api: "ghcr.io/zitadel/zitadel"
       image_name_google_api: "europe-docker.pkg.dev/zitadel-common/zitadel-repo/zitadel"
-      image_name_github_login: "ghcr.io/zitadel/zitadel-login"
-      image_name_google_login: "europe-docker.pkg.dev/zitadel-common/zitadel-repo/zitadel-login"

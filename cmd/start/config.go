@@ -22,8 +22,6 @@ import (
 	"github.com/zitadel/zitadel/internal/api/oidc"
 	"github.com/zitadel/zitadel/internal/api/saml"
 	scim_config "github.com/zitadel/zitadel/internal/api/scim/config"
-	"github.com/zitadel/zitadel/internal/api/ui/console"
-	"github.com/zitadel/zitadel/internal/api/ui/login"
 	auth_es "github.com/zitadel/zitadel/internal/auth/repository/eventsourcing"
 	"github.com/zitadel/zitadel/internal/cache/connector"
 	"github.com/zitadel/zitadel/internal/command"
@@ -70,8 +68,7 @@ type Config struct {
 	OIDC                oidc.Config
 	SAML                saml.Config
 	SCIM                scim_config.Config
-	Login               login.Config
-	Console             console.Config
+	Login               LoginConfig
 	AssetStorage        static_config.AssetStorageConfig
 	InternalAuthZ       authz.Config
 	SystemAuthZ         authz.Config
@@ -89,6 +86,7 @@ type Config struct {
 	Telemetry           *handlers.TelemetryPusherConfig
 	ServicePing         *serviceping.Config
 	HTTPClient          *http.ClientConfig
+	AutoMigrate         bool
 }
 
 type QuotasConfig struct {
@@ -166,4 +164,8 @@ func readConfig(v *viper.Viper) (*Config, error) {
 		)),
 	)
 	return config, err
+}
+
+type LoginConfig struct {
+	DefaultPaths *domain.DefaultPaths
 }

@@ -1,7 +1,7 @@
 # ZITADEL Monorepo Guide for AI Agents
 
 ## Mission & Context
-ZITADEL is an open-source Identity Management System (IAM) written in Go and Angular/React. It provides secure login, multi-tenancy, and audit trails.
+ZITADEL is an open-source Identity Management System (IAM) written in Go. It provides secure headless authentication, APIs, multi-tenancy, and audit trails.
 
 ## Read Order
 1. Read this file first.
@@ -9,15 +9,12 @@ ZITADEL is an open-source Identity Management System (IAM) written in Go and Ang
 3. If multiple scopes apply, use the most specific path.
 
 ## Repository Structure Map
-- **`apps/`**: Consumer-facing web applications.
-  - **`login`**: Next.js authentication UI. See `apps/login/AGENTS.md`.
-  - **`docs`**: Fumadocs documentation app. See `apps/docs/AGENTS.md`.
+- **`apps/`**: Headless applications and service packages.
   - **`api`**: Backend Nx app target. See `apps/api/AGENTS.md`.
-- **`console/`**: Angular Management Console. See `console/AGENTS.md`.
 - **`internal/`**: Backend domain and service logic. See `internal/AGENTS.md`.
+  - **`storage/`**: Pluggable storage SPI supporting 7 relational databases (SQLite, MySQL, PostgreSQL, MSSQL, Oracle, DSQL, HeatWave) and multi-cloud NoSQL (DynamoDB, Firestore).
 - **`proto/`**: API definitions. See `proto/AGENTS.md`.
-- **`packages/`**: Shared TypeScript packages. See `packages/AGENTS.md`.
-- **`tests/functional-ui/`**: Cypress functional UI tests. See `tests/functional-ui/AGENTS.md`.
+- **`packages/`**: Shared TypeScript and client packages. See `packages/AGENTS.md`.
 
 ## Technology Stack & Conventions
 - **Orchestration**: Nx is used for build and task orchestration.
@@ -25,10 +22,11 @@ ZITADEL is an open-source Identity Management System (IAM) written in Go and Ang
 - **Backend**:
   - **Go Version Source of Truth**: Inspect `go.mod` before Go work (`go` and optional `toolchain` directives).
   - **Communication**: For V2 APIs, connectRPC is the primary transport. gRPC and HTTP/JSON endpoints are also supported.
-  - **Pattern**: The backend is transitioning to a relational design. Events are still persisted in a separate table for history/audit, but events are not the system of record.
-- **Frontend**:
-  - **Console**: Angular + RxJS.
-  - **Login/Docs**: Next.js + React.
+  - **Architecture**: Pure Headless API service with pluggable relational and NoSQL storage SPI. Audit logs are decoupled and asynchronous.
+- **Storage & Multi-Database**:
+  - **Relational**: SQLite, PostgreSQL, SQL Server, MySQL, MySQL HeatWave, Aurora DSQL, Oracle 23ai.
+  - **NoSQL (Optional)**: Amazon DynamoDB, Google Cloud Firestore.
+  - **Build Tags**: Modules are selected via Go build tags (`storage_sqlite`, `storage_mysql`, `storage_postgres`, `storage_mssql`, `storage_dsql`, `storage_oracle`, `storage_dynamodb`, `storage_firestore`).
 
 ## ZITADEL Domain & Multi-Tenancy Logic
 
@@ -83,7 +81,7 @@ ZITADEL supports multiple deployment methods. Each has its own directory and con
 | Target | Location | Status | Notes |
 |--------|----------|--------|-------|
 | Docker Compose | `deploy/compose/` | Supported | Single-node, graduated from quickstart to semi-production. See `deploy/compose/AGENTS.md` for directory-specific rules. |
-| Kubernetes (Helm) | External ([zitadel-charts](https://github.com/zitadel/zitadel-charts)) | Supported | Official Helm chart for production workloads. Docs at `apps/docs/content/self-hosting/deploy/kubernetes/`. |
+| Kubernetes (Helm) | External ([zitadel-charts](https://github.com/zitadel/zitadel-charts)) | Supported | Official Helm chart for production workloads. |
 | apt/rpm packages | Planned | Not yet available | Future packaging target. |
 
 When generating deployment-related content:
@@ -98,13 +96,9 @@ Run commands from the repository root.
 - Use verified Nx targets only.
 - If target availability is unclear, run `pnpm nx show project <project>`.
 - Do not assume all projects have `test`, `lint`, `build`, or `generate` targets.
-- Known exception: `@zitadel/console` has no configured `test` target.
 
 ## Verified Common Targets
 - `@zitadel/api`: `prod`, `build`, `build-linux`, `pack`, `generate`, `generate-install`, `lint`, `test`, `test-unit`, `test-integration`
-- `@zitadel/login`: `dev`, `build`, `pack`, `lint`, `test`, `test-unit`, `test-integration`
-- `@zitadel/docs`: `dev`, `build`, `generate`, `install-proto-plugins`, `check-links`, `check-types`, `test`, `lint`
-- `@zitadel/console`: `dev`, `build`, `generate`, `install-proto-plugins`, `lint`
 - `@zitadel/compose`: `test-config`, `test-run`, `test-e2e`, `test`, `test-full`, `stop`
 
 ## Proto Plugin Binaries

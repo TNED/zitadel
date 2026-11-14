@@ -11,7 +11,6 @@ import (
 
 	"github.com/zitadel/zitadel/internal/api/authz"
 	http_util "github.com/zitadel/zitadel/internal/api/http"
-	"github.com/zitadel/zitadel/internal/api/ui/console/path"
 	"github.com/zitadel/zitadel/internal/database"
 	"github.com/zitadel/zitadel/internal/domain"
 	"github.com/zitadel/zitadel/internal/telemetry/tracing"
@@ -91,8 +90,8 @@ func (q *Queries) ActiveOIDCClientByID(ctx context.Context, clientID string, get
 		client.LoginBaseURI = (*URL)(loginV2.BaseURI)
 	}
 	if instance.ManagementConsoleClientID() == clientID {
-		client.RedirectURIs = append(client.RedirectURIs, http_util.DomainContext(ctx).Origin()+path.RedirectPath)
-		client.PostLogoutRedirectURIs = append(client.PostLogoutRedirectURIs, http_util.DomainContext(ctx).Origin()+path.PostLogoutPath)
+		client.RedirectURIs = append(client.RedirectURIs, http_util.DomainContext(ctx).Origin()+domain.ConsoleRedirectPath)
+		client.PostLogoutRedirectURIs = append(client.PostLogoutRedirectURIs, http_util.DomainContext(ctx).Origin()+domain.ConsolePostLogoutPath)
 	}
 	return client, err
 }

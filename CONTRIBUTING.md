@@ -5,43 +5,19 @@
 > We cannot guarantee that a pull request will be reviewed or merged, even if it is well prepared. Before investing time in a larger change, please open an issue or discussion so we can confirm whether it aligns with our current direction.
 > We truly appreciate your contributions and your understanding.
 
-Zitadel is an open-source identity and access management platform built with a modern tech stack including Go (API), Next.js/React (Login), Angular (Console), and Fumadocs (Docs) - all orchestrated through an Nx monorepo with pnpm for efficient development workflows.
+Zitadel is an open-source identity and access management platform built with a modern Go backend providing Headless API, OIDC, SAML, and SCIM services, with a pluggable multi-database storage SPI supporting 7 relational databases and multi-cloud NoSQL.
 
 ## Quick Start
 
 1. Clone the repository: `git clone https://github.com/zitadel/zitadel` or [open it in a local Dev Container](https://vscode.dev/redirect?url=vscode://ms-vscode-remote.remote-containers/cloneInVolume?url=https://github.com/zitadel/zitadel) or [create a GitHub Codespace](https://codespaces.new/zitadel/zitadel)
 2. If you cloned the repository to your local machine, install the required development dependencies
-   - [Node.js v22.x](https://nodejs.org/en/download/) - Required for UI development and to run development commands `pnpm nx ...`
    - [Go](https://go.dev/doc/install) - Required for API development. Use the version declared in `go.mod`.
    - [Docker](https://docs.docker.com/engine/install/) - Required for supporting services like the development database and for tests.
-   - [Cypress runtime dependencies](https://docs.cypress.io/guides/continuous-integration/introduction#Dependencies) - Required for Browser UI tests
-   <details>
-      <summary>WSL2 on Windows 10 users (click to expand)</summary>
-
-      For Cypress tests on WSL2, you may need to configure X11 forwarding. Following suggestions [on Stackoverflow](https://stackoverflow.com/questions/62641553/setup-cypress-on-wsl-ubuntu-for-windows-10) and [Github](https://github.com/microsoft/WSL/issues/4106). Use at your own risk.
-
-      1. Install `VcXsrv Windows X Server`
-      2. Set shortcut target to `"C:\Program Files\VcXsrv\xlaunch.exe" -ac`
-      3. In WSL2: `export DISPLAY=$(cat /etc/resolv.conf | grep nameserver | awk '{print $2}'):0`
-      4. Disable access control when starting XLaunch
-   </details>
-3. Use [Corepack](https://pnpm.io/installation#using-corepack) to make sure you have [pnpm](https://pnpm.io/) installed in the correct version: `corepack enable`.
-4. Install node module dependencies: `pnpm install`
-5. Generate code `pnpm nx run-many --target generate`
-6. Optionally, install the following VSCode plugins:
-   - [Go](https://marketplace.visualstudio.com/items?itemName=golang.Go) - For API development. Use golangci-lint v2 as linter.
-   - [Angular Language Service](https://marketplace.visualstudio.com/items?itemName=Angular.ng-template) - For Management Console development
-   - [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint) - Code linting
-   - [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode) - Code formatting
-   - [Nx Console](https://marketplace.visualstudio.com/items?itemName=nrwl.angular-console) - Nx task runner tooling
-
-Jump to the dedicated sections for developing a specific project:
-
-- [Contributing to the API](#contribute-to-api)
-- [Contributing to the Login](#contribute-to-login)
-- [Contributing to the Management Console](#contribute-to-the-management-console)
-- [Contributing to the Docs](#contribute-to-docs)
-- [Contributing translations](#contribute-translations)
+3. Install dependencies and generate code:
+   `go mod download`
+4. Jump to the dedicated sections for developing:
+   - [Contributing to the API](#contribute-to-api)
+   - [Contributing translations](#contribute-translations)
 
 ## Development Commands Cheat Sheet
 

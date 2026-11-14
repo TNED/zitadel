@@ -3,9 +3,9 @@
 ### 1. Scope & Architecture
 
 This directory provides a production-aware single-node Docker Compose deployment for ZITADEL.
-The stack contains four core services and two optional profile-based services:
+The stack contains core services and optional profile-based services:
 
-- **Core:** `zitadel-api` (Go API), `zitadel-login` (Next.js Login UI), `postgres`, `proxy` (Traefik)
+- **Core:** `zitadel-api` (Go API), `postgres`, `proxy` (Traefik)
 - **Optional:** `redis` (cache profile), `otel-collector` (observability profile)
 
 ### 2. File Conventions

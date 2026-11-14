@@ -7,7 +7,6 @@ import (
 	"github.com/zitadel/logging"
 
 	// ensure fs is setup
-	_ "github.com/zitadel/zitadel/internal/api/ui/login/statik"
 	_ "github.com/zitadel/zitadel/internal/notification/statik"
 	_ "github.com/zitadel/zitadel/internal/statik"
 )
@@ -37,11 +36,7 @@ func LoadFilesystem(ns Namespace) http.FileSystem {
 		zitadelFS, err = fs.NewWithNamespace(string(ns))
 		return zitadelFS
 	case LOGIN:
-		if loginFS != nil {
-			return loginFS
-		}
-		loginFS, err = fs.NewWithNamespace(string(ns))
-		return loginFS
+		return zitadelFS
 	case NOTIFICATION:
 		if notificationFS != nil {
 			return notificationFS

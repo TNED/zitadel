@@ -1,6 +1,6 @@
 <p align="center">
-    <img src="./apps/docs/public/img/logos/zitadel-logo-dark@2x.png#gh-light-mode-only" alt="ZITADEL Logo" max-height="200px" width="auto" />
-    <img src="./apps/docs/public/img/logos/zitadel-logo-light@2x.png#gh-dark-mode-only" alt="ZITADEL Logo" max-height="200px" width="auto" />
+    <img src="https://raw.githubusercontent.com/zitadel/zitadel/main/assets/zitadel-logo-dark.png#gh-light-mode-only" alt="ZITADEL Logo" max-height="200px" width="auto" />
+    <img src="https://raw.githubusercontent.com/zitadel/zitadel/main/assets/zitadel-logo-light.png#gh-dark-mode-only" alt="ZITADEL Logo" max-height="200px" width="auto" />
 </p>
 
 <p align="center">
@@ -27,8 +27,7 @@
 </p>
 
 <p align="center">
-    <a href="https://openid.net/certification/#OPs" alt="OpenID Connect Certified">
-        <img src="./apps/docs/public/img/logos/oidc-cert.png" /></a>
+    <a href="https://openid.net/certification/#OPs" alt="OpenID Connect Certified">OpenID Connect Certified</a>
 </p>
 
 ## The Identity Infrastructure for Developers
@@ -144,8 +143,10 @@ Explore the full [API reference](https://zitadel.com/docs/apis/introduction) —
 - [Administration Console](https://zitadel.com/docs/guides/manage/console/console-overview) for orgs and projects
 - [Custom branding](https://zitadel.com/docs/guides/manage/customize/branding) per organization
 
-**Deployment**
-- [PostgreSQL](https://zitadel.com/docs/self-hosting/manage/database#postgres) (≥ 14) · [Zero-downtime updates](https://zitadel.com/docs/concepts/architecture/solution#zero-downtime-updates) · [High scalability](https://zitadel.com/docs/self-hosting/manage/production)
+**Deployment & Storage**
+- **Pluggable Storage SPI**: Supports **7 Relational Databases** (SQLite, PostgreSQL, Microsoft SQL Server, MySQL 8.0, Oracle MySQL HeatWave, Amazon Aurora DSQL, Oracle Autonomous Database 23ai)
+- **Multi-Cloud NoSQL**: Native TTL support with Amazon DynamoDB and Google Cloud Firestore (or 100% pure relational mode)
+- Zero-downtime updates · High scalability
 
 Track upcoming features on our [roadmap](https://zitadel.com/roadmap) and follow our [changelog](https://zitadel.com/changelog) for recent updates.
 
