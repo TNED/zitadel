@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"sync"
 	"time"
+
+	"golang.org/x/sync/singleflight"
 )
 
 var (
@@ -38,6 +40,7 @@ type Manager struct {
 	componentAppID     string
 	componentAppSecret string
 	httpClient         *http.Client
+	sf                 singleflight.Group
 
 	mu                   sync.RWMutex
 	verifyTicket         string
@@ -71,7 +74,9 @@ func WithCustomEndpoints(tokenURL, preAuthURL, queryAuthURL, refreshAuthURL stri
 
 func NewManager(appID, appSecret string, httpClient *http.Client, opts ...ManagerOpt) *Manager {
 	if httpClient == nil {
-		httpClient = http.DefaultClient
+		httpClient = &http.Client{
+			Timeout: 15 * time.Second,
+		}
 	}
 	m := &Manager{
 		componentAppID:                 appID,
@@ -106,6 +111,8 @@ func (m *Manager) GetVerifyTicket() string {
 }
 
 // GetComponentAccessToken returns a valid component_access_token, refreshing automatically if expired.
+// Concurrent refresh requests are deduplicated via singleflight and the HTTP call is executed outside
+// the mutex lock to prevent lock contention and request blocking.
 func (m *Manager) GetComponentAccessToken(ctx context.Context) (string, error) {
 	m.mu.RLock()
 	if m.componentAccessToken != "" && time.Now().Before(m.tokenExpiresAt) {
@@ -115,43 +122,69 @@ func (m *Manager) GetComponentAccessToken(ctx context.Context) (string, error) {
 	}
 	m.mu.RUnlock()
 
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	// Use singleflight so that multiple concurrent goroutines requesting a token refresh
+	// share a single in-flight network call without holding m.mu during HTTP requests.
+	v, err, _ := m.sf.Do("component_access_token", func() (any, error) {
+		// Double check under lock in case another singleflight or previous call updated it
+		m.mu.RLock()
+		if m.componentAccessToken != "" && time.Now().Before(m.tokenExpiresAt) {
+			token := m.componentAccessToken
+			m.mu.RUnlock()
+			return token, nil
+		}
+		ticket := m.verifyTicket
+		m.mu.RUnlock()
 
-	// Double check after obtaining write lock
-	if m.componentAccessToken != "" && time.Now().Before(m.tokenExpiresAt) {
-		return m.componentAccessToken, nil
+		if ticket == "" {
+			return "", ErrMissingVerifyTicket
+		}
+
+		// Perform network call OUTSIDE of m.mu lock
+		token, expiresAt, err := m.fetchComponentAccessToken(ctx, ticket)
+		if err != nil {
+			return "", err
+		}
+
+		m.mu.Lock()
+		m.componentAccessToken = token
+		m.tokenExpiresAt = expiresAt
+		m.mu.Unlock()
+
+		return token, nil
+	})
+
+	if err != nil {
+		return "", err
 	}
+	return v.(string), nil
+}
 
-	if m.verifyTicket == "" {
-		return "", ErrMissingVerifyTicket
-	}
-
+func (m *Manager) fetchComponentAccessToken(ctx context.Context, ticket string) (string, time.Time, error) {
 	reqBody := map[string]string{
 		"component_appid":         m.componentAppID,
 		"component_appsecret":     m.componentAppSecret,
-		"component_verify_ticket": m.verifyTicket,
+		"component_verify_ticket": ticket,
 	}
 	payload, err := json.Marshal(reqBody)
 	if err != nil {
-		return "", err
+		return "", time.Time{}, err
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, m.componentTokenEndpoint, bytes.NewReader(payload))
 	if err != nil {
-		return "", err
+		return "", time.Time{}, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := m.httpClient.Do(req)
 	if err != nil {
-		return "", err
+		return "", time.Time{}, err
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", err
+		return "", time.Time{}, err
 	}
 
 	var res struct {
@@ -161,24 +194,23 @@ func (m *Manager) GetComponentAccessToken(ctx context.Context) (string, error) {
 		ErrMsg               string `json:"errmsg"`
 	}
 	if err := json.Unmarshal(body, &res); err != nil {
-		return "", fmt.Errorf("wechat component: decode token response failed: %w", err)
+		return "", time.Time{}, fmt.Errorf("wechat component: decode token response failed: %w", err)
 	}
 	if res.ErrCode != 0 {
-		return "", fmt.Errorf("wechat component: get token failed [errcode=%d, errmsg=%s]", res.ErrCode, res.ErrMsg)
+		return "", time.Time{}, fmt.Errorf("wechat component: get token failed [errcode=%d, errmsg=%s]", res.ErrCode, res.ErrMsg)
 	}
 	if res.ComponentAccessToken == "" {
-		return "", ErrComponentTokenEmpty
+		return "", time.Time{}, ErrComponentTokenEmpty
 	}
 
-	m.componentAccessToken = res.ComponentAccessToken
 	// Buffer expiry time by 5 minutes to avoid race conditions
 	buffer := 5 * time.Minute
 	if res.ExpiresIn <= 300 {
 		buffer = 10 * time.Second
 	}
-	m.tokenExpiresAt = time.Now().Add(time.Duration(res.ExpiresIn)*time.Second - buffer)
+	expiresAt := time.Now().Add(time.Duration(res.ExpiresIn)*time.Second - buffer)
 
-	return m.componentAccessToken, nil
+	return res.ComponentAccessToken, expiresAt, nil
 }
 
 // CreatePreAuthCode generates a pre-auth code used to construct the QR code scanning authorization URL.

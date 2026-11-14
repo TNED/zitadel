@@ -6,8 +6,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -62,6 +64,68 @@ func TestManager_GetComponentAccessToken_SuccessAndCache(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "mock_component_token_xyz", token2)
 	assert.Equal(t, int32(1), atomic.LoadInt32(&httpCallCount), "Should return cached token without new HTTP call")
+}
+
+func TestManager_GetComponentAccessToken_SingleflightConcurrency(t *testing.T) {
+	var httpCallCount int32
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if strings.Contains(r.URL.Path, "component_token") {
+			atomic.AddInt32(&httpCallCount, 1)
+			// Simulate network latency so multiple goroutines hit in-flight singleflight window
+			time.Sleep(30 * time.Millisecond)
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"component_access_token": "concurrent_mock_token_123",
+				"expires_in":             7200,
+				"errcode":                0,
+			})
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	mgr := NewManager(
+		"concurrent_appid",
+		"concurrent_secret",
+		server.Client(),
+		WithCustomEndpoints(server.URL+"/component_token", "", "", ""),
+	)
+	mgr.SetVerifyTicket("concurrent_ticket")
+
+	const goroutines = 20
+	var wg sync.WaitGroup
+	errs := make(chan error, goroutines)
+	tokens := make(chan string, goroutines)
+
+	for i := 0; i < goroutines; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			tok, err := mgr.GetComponentAccessToken(context.Background())
+			if err != nil {
+				errs <- err
+				return
+			}
+			tokens <- tok
+		}()
+	}
+
+	wg.Wait()
+	close(errs)
+	close(tokens)
+
+	for err := range errs {
+		require.NoError(t, err)
+	}
+
+	for tok := range tokens {
+		assert.Equal(t, "concurrent_mock_token_123", tok)
+	}
+
+	// Singleflight must ensure only 1 actual HTTP request was fired across all 20 concurrent goroutines
+	assert.Equal(t, int32(1), atomic.LoadInt32(&httpCallCount), "Singleflight should deduplicate all concurrent refresh requests into 1 HTTP call")
 }
 
 func TestManager_CreatePreAuthCode(t *testing.T) {
