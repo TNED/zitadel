@@ -39,6 +39,7 @@ const (
 	IDPTypeApple
 	IDPTypeSAML
 	IDPTypeZitadel
+	IDPTypeWeChat
 )
 
 func (t IDPType) GetCSSClass() string {
@@ -55,6 +56,8 @@ func (t IDPType) GetCSSClass() string {
 		return "azure"
 	case IDPTypeApple:
 		return "apple"
+	case IDPTypeWeChat:
+		return "wechat"
 	case IDPTypeUnspecified,
 		IDPTypeOIDC,
 		IDPTypeJWT,
@@ -88,6 +91,8 @@ func (t IDPType) DisplayName() string {
 		return "Apple"
 	case IDPTypeZitadel:
 		return "ZITADEL"
+	case IDPTypeWeChat:
+		return "WeChat"
 	case IDPTypeUnspecified,
 		IDPTypeOIDC,
 		IDPTypeJWT,

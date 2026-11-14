@@ -49,3 +49,19 @@ func (p UserAgentID) setValue() {}
 type LoginHintParam string
 
 func (p LoginHintParam) setValue() {}
+
+// DirectCredentialProvider is an optional interface that a 3rd party authentication Provider
+// can implement to support direct, non-redirect credential authentication
+// (such as WeChat Mini Program code2Session, Native App SDK code exchange).
+type DirectCredentialProvider interface {
+	Provider
+	VerifyDirectCredential(ctx context.Context, creds DirectCredentials) (User, error)
+}
+
+// DirectCredentials defines the interface for passing direct credentials (code, tokens, parameters)
+// to a DirectCredentialProvider without relying on browser redirects.
+type DirectCredentials interface {
+	CredentialType() string
+	Payload() map[string]string
+}
+
