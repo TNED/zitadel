@@ -25,11 +25,8 @@ jobs:
     if: ${{ github.ref != 'refs/heads/main' || github.event_name == 'workflow_dispatch' }}
     permissions:
       contents: read
-    with:
-      node_version: "22"
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-      NX_CLOUD_ACCESS_TOKEN_READONLY: ${{ secrets.NX_CLOUD_ACCESS_TOKEN }}
 
   pack:
     uses: ./.github/workflows/pack.yml
@@ -40,7 +37,6 @@ jobs:
       GCR_JSON_KEY_BASE64: ${{ secrets.GCR_JSON_KEY_BASE64 }}
     if: ${{ github.event_name == 'workflow_dispatch' }}
     with:
-      node_version: "22"
       semantic_version: "23.0.7"
       image_name_github_api: "ghcr.io/zitadel/zitadel"
       image_name_google_api: "europe-docker.pkg.dev/zitadel-common/zitadel-repo/zitadel"

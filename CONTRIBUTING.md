@@ -21,39 +21,19 @@ Zitadel is an open-source identity and access management platform built with a m
 
 ## Development Commands Cheat Sheet
 
-This repository contains multiple interconnected projects.
-You can build and start any project with Nx commands.
+This repository is a pure Go project and uses `make` for build and task orchestration.
 
-| Task                          | Command                                     | Notes                        | Details                                                                                                                                                                                          |
-| ----------------------------- | ------------------------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Production**                | `pnpm nx run PROJECT:prod`                  | Production server            |                                                                                                                                                                                                  |
-| **Develop**                   | `pnpm nx run PROJECT:dev`                   | Development server           |                                                                                                                                                                                                  |
-| **Generate**                  | `pnpm nx run PROJECT:generate`              | Generate .gitignored files   |                                                                                                                                                                                                  |
-| **Generate Go Files**         | `pnpm nx run @zitadel/api:generate-go`      | Regenerate checked-in files  | This is needed to generate files using [Stringer](https://pkg.go.dev/golang.org/x/tools/cmd/stringer), [Enumer](https://github.com/dmarkham/enumer) or [gomock](https://github.com/uber-go/mock) |
-| **Install Proto Plugins**     | `pnpm nx run @zitadel/api:generate-install` | Install proto toolchain      | Installs Go-based plugins (protoc-gen-go, connect-go, …) to `.artifacts/bin/`. Run automatically by `generate` targets; Nx caches the outputs.                                                   |
-| **Test - Unit**               | `pnpm nx run PROJECT:test-unit`             | Run unit tests               |                                                                                                                                                                                                  |
-| **Test - Integration**        | `pnpm nx run PROJECT:test-integration`      | Run integration tests        | Learn more about how to [debug API integration tests](#run-api-integration-tests)                                                                                                                |
-| **Test - Integration Stop**   | `pnpm nx run PROJECT:test-integration-stop` | Stop integration containers  |                                                                                                                                                                                                  |
-| **Test - Functional UI**      | `pnpm nx run @zitadel/functional-ui:test`   | Run functional UI tests      | Learn more about how to [develop the Management Console and opening the interactive Test Suite](#pass-the-management-console-quality-checks)                                                     |
-| **Test - Functional UI Stop** | `pnpm nx run @zitadel/functional-ui:stop`   | Run functional UI containers |                                                                                                                                                                                                  |
-| **Test**                      | `pnpm nx run PROJECT:test`                  | Run all tests                |                                                                                                                                                                                                  |
-| **Lint**                      | `pnpm nx run PROJECT:lint`                  | Check code style             |                                                                                                                                                                                                  |
-| **Lint Fix**                  | `pnpm nx run PROJECT:lint-fix`              | Auto-fix style issues        |                                                                                                                                                                                                  |
-
-Replace `PROJECT` with one of the following:
-
-- `@zitadel/zitadel` (you can omit this root level project when using `pnpm nx run`, like `pnpm nx run db`)
-- `@zitadel/api`
-- `@zitadel/login`
-- `@zitadel/console`
-- `@zitadel/docs`
-- `@zitadel/client`
-- `@zitadel/proto`
-
-Instead of the project names, you can also use their directory names for `PROJECT`, like `pnpm nx run login:dev`.
-Alternatively, you can use the infix-notation, like `pnpm nx dev @zitadel/login` or `pnpm nx dev login`.
-To stream all logs instead of opening the interactive terminal, disable the TUI with `pnpm nx --tui false ...`.
-If a command is stuck because a process is already running, stop the Nx daemon and try again: `pnpm nx daemon --stop`.
+| Task                          | Command                     | Notes                        | Details                                                                                                                                                                                          |
+| ----------------------------- | --------------------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Build**                     | `make build`                | Build zitadel binary         | Builds to `.artifacts/bin/$(go env GOOS)/$(go env GOARCH)/zitadel`                                                                                                                             |
+| **Build Linux**               | `make build-linux`          | Cross-compile for Linux      | Builds Linux AMD64 binary for container packaging                                                                                                                                                |
+| **Generate**                  | `make generate`             | Generate stubs and assets    | Generates protobuf/Connect stubs via buf, and statik assets                                                                                                                                      |
+| **Test - Unit**               | `make test-unit`            | Run unit tests               | Runs unit tests with race detector and coverage                                                                                                                                                  |
+| **Test - Integration**        | `make test-integration`     | Run integration tests        | Runs integration tests                                                                                                                                                                           |
+| **Lint**                      | `make lint`                 | Check code style             | Runs `golangci-lint`                                                                                                                                                                             |
+| **Lint Fix**                  | `make lint-fix`             | Auto-fix style issues        | Auto-fixes lint issues                                                                                                                                                                           |
+| **Docker**                    | `make docker`               | Build container image        | Builds `zitadel:local` Docker image                                                                                                                                                              |
+| **Clean**                     | `make clean`                | Clean build artifacts        | Removes `.artifacts/` and coverage files                                                                                                                                                         |
 
 ## Introduction
 

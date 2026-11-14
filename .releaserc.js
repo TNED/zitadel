@@ -37,10 +37,6 @@ module.exports = {
             label: "zitadel-darwin-arm64.tar.gz",
           },
           {
-            path: ".artifacts/pack/zitadel-login.tar.gz",
-            label: "zitadel-login.tar.gz",
-          },
-          {
             path: ".artifacts/pack/checksums.txt",
             label: "checksums.txt",
           }

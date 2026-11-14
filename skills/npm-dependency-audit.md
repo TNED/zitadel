@@ -137,10 +137,10 @@ Use only Nx targets that exist (see the root `AGENTS.md`, or run `pnpm nx show p
 ```bash
 pnpm audit                                   # expect: No known vulnerabilities found
 pnpm install --frozen-lockfile               # what CI runs; fails if a manifest and the lockfile disagree
-pnpm nx run-many -t build test-unit lint -p @zitadel/login @zitadel/client @zitadel/console @zitadel/docs
+pnpm nx run-many -t build test-unit lint -p @zitadel/client
 ```
 
-`@zitadel/console` has no `test-unit` target; Nx skips it. For bumps that touch the login's Docker image, containers or telemetry, also run the dockerized login tests (`pnpm --filter @zitadel/login test-dockerized`, needs Docker). If some of these checks can't run locally, say so in the PR.
+For bumps that touch packages or compose tests, run the appropriate Nx targets. If some of these checks can't run locally, say so in the PR.
 
 ## 6. Open the PR
 

@@ -104,27 +104,18 @@ linters:
     paths:
       - .artifacts
       - .backups
-      - .codecov
       - .github
       - .keys
       - .vscode
-      - .devcontainer
       - build
       - deploy
       - guides
-      - internal/api/ui/login/static
       - openapi
       - proto
       - tools
       - third_party$
       - builtin$
       - examples$
-      - apps
-      - packages
-      - console
-      - docs
-      - benchmark
-      - tests
 
 issues:
   max-issues-per-linter: 0
@@ -145,24 +136,15 @@ formatters:
     paths:
       - .artifacts
       - .backups
-      - .codecov
       - .github
       - .keys
       - .vscode
-      - .devcontainer
       - build
       - deploy
       - guides
-      - internal/api/ui/login/static
       - openapi
       - proto
       - tools
       - third_party$
       - builtin$
       - examples$
-      - apps
-      - packages
-      - console
-      - docs
-      - benchmark
-      - tests

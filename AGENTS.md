@@ -9,16 +9,14 @@ ZITADEL is an open-source Identity Management System (IAM) written in Go. It pro
 3. If multiple scopes apply, use the most specific path.
 
 ## Repository Structure Map
-- **`apps/`**: Headless applications and service packages.
-  - **`api`**: Backend Nx app target. See `apps/api/AGENTS.md`.
+- **`cmd/`**: Entrypoint and CLI commands for the Zitadel service.
 - **`internal/`**: Backend domain and service logic. See `internal/AGENTS.md`.
   - **`storage/`**: Pluggable storage SPI supporting 7 relational databases (SQLite, MySQL, PostgreSQL, MSSQL, Oracle, DSQL, HeatWave) and multi-cloud NoSQL (DynamoDB, Firestore).
 - **`proto/`**: API definitions. See `proto/AGENTS.md`.
-- **`packages/`**: Shared TypeScript and client packages. See `packages/AGENTS.md`.
+- **`deploy/`**: Deployment setups (e.g. `deploy/compose/`).
 
 ## Technology Stack & Conventions
-- **Orchestration**: Nx is used for build and task orchestration.
-- **Package Manager**: pnpm.
+- **Orchestration**: Makefile is used for build and task orchestration.
 - **Backend**:
   - **Go Version Source of Truth**: Inspect `go.mod` before Go work (`go` and optional `toolchain` directives).
   - **Communication**: For V2 APIs, connectRPC is the primary transport. gRPC and HTTP/JSON endpoints are also supported.
@@ -91,18 +89,17 @@ When generating deployment-related content:
 - The same `ZITADEL_*` environment variable model applies across all deployment methods
 
 ## Command Rules
-Run commands from the repository root.
+Run commands from the repository root using Makefile targets:
 
-- Use verified Nx targets only.
-- If target availability is unclear, run `pnpm nx show project <project>`.
-- Do not assume all projects have `test`, `lint`, `build`, or `generate` targets.
-
-## Verified Common Targets
-- `@zitadel/api`: `prod`, `build`, `build-linux`, `pack`, `generate`, `generate-install`, `lint`, `test`, `test-unit`, `test-integration`
-- `@zitadel/compose`: `test-config`, `test-run`, `test-e2e`, `test`, `test-full`, `stop`
-
-## Proto Plugin Binaries
-All proto plugins are installed to `.artifacts/bin/<GOOS>/<GOARCH>/` and Nx-cached. `generate` targets wire up the correct install dependency and prepend `.artifacts/bin/` to `$PATH` — no manual install step is needed.
+- `make build`: Compile the zitadel binary into `.artifacts/bin/$(go env GOOS)/$(go env GOARCH)/zitadel`.
+- `make build-linux`: Cross-compile for Linux AMD64.
+- `make test`: Run unit tests (`make test-unit`).
+- `make test-integration`: Run integration tests.
+- `make lint`: Run `golangci-lint` with repository rules.
+- `make lint-fix`: Automatically fix lint issues where supported.
+- `make generate`: Regenerate protobuf, ConnectRPC, and statik assets.
+- `make docker`: Build local Docker image.
+- `make clean`: Clean build artifacts and coverage reports.
 
 ## PR Title Convention
 

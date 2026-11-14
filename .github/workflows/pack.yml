@@ -3,9 +3,6 @@ name: Package und Publish Archives and Images
 on:
   workflow_call:
     inputs:
-      node_version:
-        required: true
-        type: string
       image_name_github_api:
         required: true
         type: string
@@ -52,27 +49,25 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          run_install: false
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ inputs.node_version }}
-          cache: "pnpm"
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-      - name: Pack API and Login
+      - name: Pack Archives
         env:
           ZITADEL_VERSION: ${{ needs.version.outputs.version }}
-          NX_CLOUD_ACCESS_TOKEN: ${{ secrets.NX_CLOUD_ACCESS_TOKEN || secrets.NX_CLOUD_ACCESS_TOKEN_READONLY }}
-        run: pnpm nx run --nxBail pack
-      - name: Suggest Pipeline Fix By Nx Cloud AI
-        if: always()
-        env:
-          NX_CLOUD_ACCESS_TOKEN: ${{ secrets.NX_CLOUD_ACCESS_TOKEN || secrets.NX_CLOUD_ACCESS_TOKEN_READONLY }}
-        run: pnpm nx fix-ci
+        run: |
+          mkdir -p .artifacts/pack
+          for os in linux darwin windows; do
+            for arch in amd64 arm64; do
+              ext=""
+              if [ "$os" = "windows" ]; then ext=".exe"; fi
+              folder="zitadel-$os-$arch"
+              mkdir -p ".artifacts/bin/$os/$arch"
+              GOOS=$os GOARCH=$arch CGO_ENABLED=0 go build -ldflags="-s -w -X 'github.com/zitadel/zitadel/cmd/build.version=${ZITADEL_VERSION}'" -o ".artifacts/bin/$os/$arch/zitadel$ext" .
+              mkdir -p ".artifacts/pack/$folder"
+              cp README.md LICENSE ".artifacts/bin/$os/$arch/zitadel$ext" ".artifacts/pack/$folder/"
+              tar -czvf ".artifacts/pack/$folder.tar.gz" -C .artifacts/pack "$folder"
+              rm -rf ".artifacts/pack/$folder"
+            done
+          done
+          sha256sum .artifacts/pack/zitadel-*.tar.gz > .artifacts/pack/checksums.txt
       - name: Upload all platform archives
         uses: actions/upload-artifact@v4
         with:
@@ -106,23 +101,14 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          run_install: false
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ inputs.node_version }}
-          cache: "pnpm"
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
       - name: Build Linux API binaries
         env:
           ZITADEL_GOFIPS140: ${{ matrix.gofips140 }}
           ZITADEL_VERSION: ${{ needs.version.outputs.version }}
-          NX_CLOUD_ACCESS_TOKEN: ${{ secrets.NX_CLOUD_ACCESS_TOKEN || secrets.NX_CLOUD_ACCESS_TOKEN_READONLY }}
-        run: pnpm nx run-many --nxBail -p @zitadel/api -t pack-linux-amd64,pack-linux-arm64
+        run: |
+          mkdir -p .artifacts/bin/linux/amd64 .artifacts/bin/linux/arm64
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 GOFIPS140=${ZITADEL_GOFIPS140} go build -ldflags="-s -w -X 'github.com/zitadel/zitadel/cmd/build.version=${ZITADEL_VERSION}'" -o .artifacts/bin/linux/amd64/zitadel .
+          GOOS=linux GOARCH=arm64 CGO_ENABLED=0 GOFIPS140=${ZITADEL_GOFIPS140} go build -ldflags="-s -w -X 'github.com/zitadel/zitadel/cmd/build.version=${ZITADEL_VERSION}'" -o .artifacts/bin/linux/arm64/zitadel .
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
@@ -172,7 +158,7 @@ jobs:
           context: .
           cache-from: type=gha,scope=api-scratch-${{ matrix.gofips140 }}
           cache-to: type=gha,mode=max,scope=api-scratch-${{ matrix.gofips140 }}
-          file: apps/api/Dockerfile
+          file: Dockerfile
           target: final
           platforms: linux/amd64,linux/arm64
           push: true
@@ -195,7 +181,7 @@ jobs:
           context: .
           cache-from: type=gha,scope=api-debug-${{ matrix.gofips140 }}
           cache-to: type=gha,mode=max,scope=api-debug-${{ matrix.gofips140 }}
-          file: apps/api/Dockerfile
+          file: Dockerfile
           target: builder
           platforms: linux/amd64,linux/arm64
           push: true
@@ -210,7 +196,7 @@ jobs:
           context: .
           cache-from: type=gha,scope=api-debug-${{ matrix.gofips140 }}
           cache-to: type=gha,mode=max,scope=api-debug-${{ matrix.gofips140 }}
-          file: apps/api/Dockerfile
+          file: Dockerfile
           target: builder
           platforms: linux/amd64,linux/arm64
           push: true
