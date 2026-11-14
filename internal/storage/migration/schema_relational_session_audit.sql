@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS zitadel_sessions (
     instance_id VARCHAR(64) NOT NULL,
     user_id VARCHAR(64) NOT NULL,
     user_agent VARCHAR(512),
-    client_ip VARCHAR(64),
+    ip_address VARCHAR(64),
     data TEXT,
     expires_at TIMESTAMP NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

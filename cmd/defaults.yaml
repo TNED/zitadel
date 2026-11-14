@@ -245,11 +245,11 @@ PublicHostHeaders: # ZITADEL_PUBLICHOSTHEADERS
 WebAuthNName: ZITADEL # ZITADEL_WEBAUTHNNAME
 
 # Multi-Database Storage SPI Configuration
-# Supports 7 relational engines (sqlite, mysql, postgres, dsql, mssql, oracle)
+# Supports 7 relational engines (sqlite, mysql, postgres, dsql, mssql, oracle/oracle23ai/oracle26ai)
 # and multi-cloud NoSQL (dynamodb, firestore)
 Storage:
   Relational:
-    Dialect: "postgres" # ZITADEL_STORAGE_RELATIONAL_DIALECT (sqlite | mysql | postgres | dsql | mssql | oracle)
+    Dialect: "postgres" # ZITADEL_STORAGE_RELATIONAL_DIALECT (sqlite | mysql | postgres | dsql | mssql | oracle | oracle23ai | oracle26ai)
     DSN: "" # ZITADEL_STORAGE_RELATIONAL_DSN
     MaxOpenConns: 50 # ZITADEL_STORAGE_RELATIONAL_MAXOPENCONNS
     MaxIdleConns: 10 # ZITADEL_STORAGE_RELATIONAL_MAXIDLECONNS

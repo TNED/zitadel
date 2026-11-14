@@ -29,3 +29,21 @@ func TestMigrationRunnerSQLite(t *testing.T) {
 	// The runner splits statements and executes them
 	_ = runner.Run(ctx)
 }
+
+func TestMigrationRunnerOracle26ai(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to open sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	// Mock DDL executions for Oracle 26ai schema
+	mock.ExpectExec(".*").WillReturnResult(sqlmock.NewResult(0, 0))
+
+	runner := migration.NewRunner(db, storage.DialectOracle26ai).SetPureRelational(true)
+	ctx := context.Background()
+
+	if err := runner.Run(ctx); err != nil {
+		t.Fatalf("Oracle 26ai migration failed: %v", err)
+	}
+}

@@ -137,7 +137,7 @@ func (b *Bootstrapper) formatQuery(q string) string {
 		for i := 15; i >= 1; i-- {
 			q = replacePlaceholder(q, fmt.Sprintf("$%d", i), fmt.Sprintf("@p%d", i))
 		}
-	} else if b.dialect == storage.DialectOracle {
+	} else if b.dialect == storage.DialectOracle || b.dialect == storage.DialectOracle23ai || b.dialect == storage.DialectOracle26ai {
 		for i := 15; i >= 1; i-- {
 			q = replacePlaceholder(q, fmt.Sprintf("$%d", i), fmt.Sprintf(":%d", i))
 		}

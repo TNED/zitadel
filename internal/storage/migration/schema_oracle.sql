@@ -1,4 +1,4 @@
--- Oracle Database 23ai / Autonomous DB DDL Schema for ZITADEL Core
+-- Oracle Database 26ai / 23ai / Autonomous DB DDL Schema for ZITADEL Core
 CREATE TABLE IF NOT EXISTS zitadel_schema_version (
     version NUMBER(10) PRIMARY KEY,
     applied_at TIMESTAMP WITH TIME ZONE DEFAULT SYSTIMESTAMP,
@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS zitadel_credentials (
     user_id VARCHAR2(64) NOT NULL,
     instance_id VARCHAR2(64) NOT NULL,
     cred_type VARCHAR2(32) NOT NULL,
-    secret_hash CLOB NOT NULL,
+    secret_hash VARCHAR2(255) NOT NULL,
     metadata JSON,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT SYSTIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT SYSTIMESTAMP,
@@ -116,3 +116,31 @@ CREATE TABLE IF NOT EXISTS zitadel_policies (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT SYSTIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_policies_lookup ON zitadel_policies(instance_id, policy_type);
+
+-- Relational Session and Audit tables for Oracle 26ai / 23ai (Used when NoSQL is NOT active)
+CREATE TABLE IF NOT EXISTS zitadel_sessions (
+    id VARCHAR2(64) PRIMARY KEY,
+    instance_id VARCHAR2(64) NOT NULL,
+    user_id VARCHAR2(64) NOT NULL,
+    user_agent VARCHAR2(512),
+    ip_address VARCHAR2(64),
+    data CLOB,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT SYSTIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT SYSTIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_sessions_inst_user ON zitadel_sessions(instance_id, user_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_expires ON zitadel_sessions(expires_at);
+
+CREATE TABLE IF NOT EXISTS zitadel_audit_logs (
+    id VARCHAR2(64) PRIMARY KEY,
+    instance_id VARCHAR2(64) NOT NULL,
+    aggregate_type VARCHAR2(64) NOT NULL,
+    aggregate_id VARCHAR2(64) NOT NULL,
+    event_type VARCHAR2(64) NOT NULL,
+    editor_user VARCHAR2(64),
+    payload CLOB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT SYSTIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_audit_inst_agg ON zitadel_audit_logs(instance_id, aggregate_type, aggregate_id);
+CREATE INDEX IF NOT EXISTS idx_audit_created ON zitadel_audit_logs(created_at);

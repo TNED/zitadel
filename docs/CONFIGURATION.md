@@ -165,24 +165,60 @@ ZITADEL_STORAGE_RELATIONAL_DSN="sqlserver://zitadel_user:SecretPassword123!@sqls
 
 ---
 
-### 2.6 Oracle Database 23ai & Oracle Autonomous Database
+### 2.6 Oracle Database 26ai, 23ai & Oracle Autonomous Database (OCI ATP / AJD)
 * **Build Tag**: `storage_oracle`
 * **Driver**: `github.com/sijms/go-ora/v2` (Pure Go, Zero Oracle Client/OCI binaries required)
-* **Best For**: Oracle Cloud Infrastructure (OCI) Autonomous Database, Oracle Database 23ai.
+* **Supported Dialects**: `oracle` | `oracle23ai` | `oracle26ai`
+* **Workload Recommendations**:
+  - **Autonomous Transaction Processing (ATP)**: **Strongly Recommended** as primary production storage. Ideal for low-latency, high-concurrency IAM OLTP workloads with row-level locking, auto-indexing, and fast short transactions.
+  - **Autonomous JSON Database (AJD)**: **Technically Compatible** (shares the ATP engine). Suitable for lightweight or development environments; for large-scale production, upgrade to ATP to avoid relational table storage limits.
+  - **Autonomous Data Warehouse (ADW)**: **Not Recommended as Core Auth Store**. ADW is columnar-optimized for large analytical scans and aggregations. Use ADW as an external downstream sink for exported audit and security analytics.
+
+#### Option A: OCI ATP with Mutual TLS (mTLS Wallet)
+Download the client credentials ZIP (`cwallet.sso`, `tnsnames.ora`) from the OCI Autonomous Database console, extract to a local directory, and configure:
 
 ```yaml
 Storage:
   Relational:
-    Dialect: "oracle"
-    DSN: "oracle://zitadel_user:SecretPassword123!@oracle.internal:1521/FREEPDB1?SSL=enable&WALLET=/etc/oracle/wallet"
+    Dialect: "oracle26ai" # oracle | oracle23ai | oracle26ai
+    DSN: "oracle://zitadel_user:SecretPassword123!@adb.ap-singapore-1.oraclecloud.com:1522/myatp26ai_high?SSL=enable&WALLET=/etc/oracle/wallet"
+    MaxOpenConns: 50
+    MaxIdleConns: 10
+    ConnMaxLifetime: "30m"
+```
+
+#### Option B: OCI ATP with Server-Side TLS (Wallet-less)
+When Server-Side TLS (TCPS) is enabled on your OCI Autonomous Database, connect directly without wallet files:
+
+```yaml
+Storage:
+  Relational:
+    Dialect: "oracle26ai"
+    DSN: "oracle://zitadel_user:SecretPassword123!@adb.ap-singapore-1.oraclecloud.com:1522/myatp26ai_high?SSL=TRUE&SSL Verify=FALSE"
+    MaxOpenConns: 50
+    MaxIdleConns: 10
+    ConnMaxLifetime: "30m"
+```
+
+#### Option C: Standard Oracle Database 26ai / 23ai (On-Premises / Docker)
+```yaml
+Storage:
+  Relational:
+    Dialect: "oracle26ai"
+    Host: "oracle.internal"
+    Port: 1521
+    Database: "FREEPDB1"
+    User: "zitadel_user"
+    Password: "SecretPassword123!"
     MaxOpenConns: 30
     MaxIdleConns: 5
     ConnMaxLifetime: "30m"
 ```
+
 *Environment Variables*:
 ```bash
-ZITADEL_STORAGE_RELATIONAL_DIALECT=oracle
-ZITADEL_STORAGE_RELATIONAL_DSN="oracle://zitadel_user:SecretPassword123!@oracle.internal:1521/FREEPDB1"
+ZITADEL_STORAGE_RELATIONAL_DIALECT=oracle26ai
+ZITADEL_STORAGE_RELATIONAL_DSN="oracle://zitadel_user:SecretPassword123!@adb.ap-singapore-1.oraclecloud.com:1522/myatp26ai_high?SSL=enable&WALLET=/etc/oracle/wallet"
 ```
 
 ---

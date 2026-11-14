@@ -5,6 +5,20 @@ import (
 	"time"
 )
 
+// Dialect defines the database dialect identifier for migrations and bootstrapping.
+type Dialect string
+
+const (
+	DialectSQLite     Dialect = "sqlite"
+	DialectPostgres   Dialect = "postgres"
+	DialectMySQL      Dialect = "mysql"
+	DialectMSSQL      Dialect = "mssql"
+	DialectDSQL       Dialect = "dsql"
+	DialectOracle     Dialect = "oracle"
+	DialectOracle23ai Dialect = "oracle23ai"
+	DialectOracle26ai Dialect = "oracle26ai"
+)
+
 // Engine defines the unified storage gateway interface.
 // Domain services access all repositories through this gateway.
 type Engine interface {

@@ -67,7 +67,9 @@ func (r *Runner) Run(ctx context.Context) error {
 	}
 
 	// 3. Conditionally execute relational session/audit DDL if pure relational mode is active
-	if r.isPureRelational {
+	// Note: For Oracle dialects (including 23ai and 26ai), session and audit tables are natively defined in schemaOracle
+	// using Oracle-compliant types (CLOB, TIMESTAMP WITH TIME ZONE) rather than generic TEXT.
+	if r.isPureRelational && !r.isOracleDialect() {
 		if err := r.executeScript(ctx, schemaRelationalSessionAudit); err != nil {
 			return fmt.Errorf("migration failed for relational session/audit tables: %w", err)
 		}
@@ -94,7 +96,7 @@ func (r *Runner) getSchemaDDL() (string, error) {
 		return schemaMySQL, nil
 	case storage.DialectMSSQL:
 		return schemaMSSQL, nil
-	case storage.DialectOracle:
+	case storage.DialectOracle, storage.DialectOracle23ai, storage.DialectOracle26ai:
 		return schemaOracle, nil
 	default:
 		return "", fmt.Errorf("unsupported database dialect for migration: %s", r.dialect)
@@ -129,13 +131,17 @@ func (r *Runner) recordVersion(ctx context.Context, version int, description str
 		query = `IF NOT EXISTS (SELECT 1 FROM zitadel_schema_version WHERE version = @p1) INSERT INTO zitadel_schema_version (version, description) VALUES (@p1, @p2);`
 		_, err := r.db.ExecContext(ctx, query, version, description)
 		return err
-	} else if r.dialect == storage.DialectOracle {
+	} else if r.isOracleDialect() {
 		query = `MERGE INTO zitadel_schema_version tgt USING (SELECT :1 AS version, :2 AS description FROM dual) src ON (tgt.version = src.version) WHEN NOT MATCHED THEN INSERT (version, description) VALUES (src.version, src.description);`
 		_, err := r.db.ExecContext(ctx, query, version, description)
 		return err
 	}
 	_, err := r.db.ExecContext(ctx, query, version, description)
 	return err
+}
+
+func (r *Runner) isOracleDialect() bool {
+	return r.dialect == storage.DialectOracle || r.dialect == storage.DialectOracle23ai || r.dialect == storage.DialectOracle26ai
 }
 
 func splitSQLStatements(script string) []string {

@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net/url"
 	"strings"
 
 	_ "github.com/sijms/go-ora/v2"
@@ -14,36 +15,62 @@ import (
 )
 
 func init() {
-	p := &Provider{}
-	relational.RegisterProvider("oracle", p)
-	relational.RegisterProvider("oracle23ai", p)
+	relational.RegisterProvider("oracle", &Provider{name: "oracle"})
+	relational.RegisterProvider("oracle23ai", &Provider{name: "oracle23ai"})
+	relational.RegisterProvider("oracle26ai", &Provider{name: "oracle26ai"})
 }
 
-type Provider struct{}
+type Provider struct {
+	name string
+}
 
 func (p *Provider) Name() string {
-	return "oracle"
+	if p.name == "" {
+		return "oracle"
+	}
+	return p.name
 }
 
 func (p *Provider) Dialect() relational.Dialect {
-	return &Dialect{}
+	return &Dialect{name: p.Name()}
+}
+
+// BuildDSN constructs an Oracle DSN from configuration parameters, supporting OCI Autonomous Database (ATP/AJD)
+// options like SSL and WALLET.
+func BuildDSN(cfg relational.Config) string {
+	if cfg.DSN != "" {
+		return cfg.DSN
+	}
+	host := cfg.Host
+	if host == "" {
+		host = "localhost"
+	}
+	port := cfg.Port
+	if port == 0 {
+		port = 1521
+	}
+	dbName := cfg.Database
+	if dbName == "" {
+		dbName = "FREEPDB1"
+	}
+
+	dsn := fmt.Sprintf("oracle://%s:%s@%s:%d/%s",
+		url.QueryEscape(cfg.User), url.QueryEscape(cfg.Password), host, port, dbName,
+	)
+
+	if len(cfg.Options) > 0 {
+		params := url.Values{}
+		for k, v := range cfg.Options {
+			params.Set(k, v)
+		}
+		dsn = fmt.Sprintf("%s?%s", dsn, params.Encode())
+	}
+
+	return dsn
 }
 
 func (p *Provider) Connect(ctx context.Context, cfg relational.Config) (*sql.DB, error) {
-	dsn := cfg.DSN
-	if dsn == "" {
-		host := cfg.Host
-		if host == "" {
-			host = "localhost"
-		}
-		port := cfg.Port
-		if port == 0 {
-			port = 1521
-		}
-		dsn = fmt.Sprintf("oracle://%s:%s@%s:%d/%s",
-			cfg.User, cfg.Password, host, port, cfg.Database,
-		)
-	}
+	dsn := BuildDSN(cfg)
 
 	db, err := sql.Open("oracle", dsn)
 	if err != nil {
@@ -54,13 +81,21 @@ func (p *Provider) Connect(ctx context.Context, cfg relational.Config) (*sql.DB,
 	} else {
 		db.SetMaxOpenConns(30)
 	}
+	if cfg.MaxIdleConns > 0 {
+		db.SetMaxIdleConns(cfg.MaxIdleConns)
+	}
 	return db, db.PingContext(ctx)
 }
 
-type Dialect struct{}
+type Dialect struct {
+	name string
+}
 
 func (d *Dialect) Name() string {
-	return "oracle"
+	if d.name == "" {
+		return "oracle"
+	}
+	return d.name
 }
 
 func (d *Dialect) QuoteIdentifier(name string) string {
