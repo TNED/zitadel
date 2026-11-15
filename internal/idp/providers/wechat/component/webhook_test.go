@@ -98,3 +98,39 @@ func TestWebhookHandler_UnauthorizedEvent(t *testing.T) {
 	assert.Equal(t, "unauthorized", event.InfoType)
 	assert.Equal(t, "tenant_wx_appid_888", event.AuthorizerAppID)
 }
+
+func TestWebhookHandler_DispatchEvent_UpdatesManagerTicket(t *testing.T) {
+	componentAppID := "wx_ticket_comp_1"
+	token := "tok123"
+	encodingAESKey := "1234567890123456789012345678901234567890123"
+
+	handler, err := NewWebhookHandler(componentAppID, token, encodingAESKey)
+	require.NoError(t, err)
+
+	ticketXML := `<xml><AppId>` + componentAppID + `</AppId><CreateTime>1700000200</CreateTime><InfoType>component_verify_ticket</InfoType><ComponentVerifyTicket>ticket_auto_pushed_888</ComponentVerifyTicket></xml>`
+	encryptedBase64, err := handler.EncryptMessage(nil, []byte(ticketXML))
+	require.NoError(t, err)
+
+	timestamp := "1700000200"
+	nonce := "nonce200"
+
+	strs := []string{token, timestamp, nonce, encryptedBase64}
+	sort.Strings(strs)
+	hSha := sha1.New()
+	_, _ = hSha.Write([]byte(strings.Join(strs, "")))
+	signature := hex.EncodeToString(hSha.Sum(nil))
+
+	rawPayload := EncryptedXMLPayload{
+		AppID:   componentAppID,
+		Encrypt: encryptedBase64,
+	}
+	rawBytes, _ := xml.Marshal(rawPayload)
+
+	mgr := NewManager(componentAppID, "secret", nil)
+	assert.Empty(t, mgr.GetVerifyTicket())
+
+	event, err := handler.DispatchEvent(signature, timestamp, nonce, rawBytes, mgr)
+	require.NoError(t, err)
+	assert.Equal(t, "component_verify_ticket", event.InfoType)
+	assert.Equal(t, "ticket_auto_pushed_888", mgr.GetVerifyTicket(), "DispatchEvent should automatically update manager verify ticket")
+}

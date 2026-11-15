@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -28,11 +29,16 @@ const (
 
 // AuthorizerAuthInfo contains the authorization credentials returned after a tenant scans the QR code.
 type AuthorizerAuthInfo struct {
-	AuthorizerAppID        string   `json:"authorizer_appid"`
-	AuthorizerAccessToken  string   `json:"authorizer_access_token"`
-	ExpiresIn              int64    `json:"expires_in"`
-	AuthorizerRefreshToken string   `json:"authorizer_refresh_token"`
-	FuncInfo               []int    `json:"func_info,omitempty"`
+	AuthorizerAppID        string `json:"authorizer_appid"`
+	AuthorizerAccessToken  string `json:"authorizer_access_token"`
+	ExpiresIn              int64  `json:"expires_in"`
+	AuthorizerRefreshToken string `json:"authorizer_refresh_token"`
+	FuncInfo               []int  `json:"func_info,omitempty"`
+}
+
+type cachedAuthorizerToken struct {
+	token     string
+	expiresAt time.Time
 }
 
 // Manager coordinates Third-Party Platform credentials, caching, and token lifecycles.
@@ -46,6 +52,9 @@ type Manager struct {
 	verifyTicket         string
 	componentAccessToken string
 	tokenExpiresAt       time.Time
+
+	// Multi-tenant authorizer token in-memory cache
+	authorizerTokens sync.Map // map[string]*cachedAuthorizerToken
 
 	componentTokenEndpoint         string
 	createPreAuthCodeEndpoint      string
@@ -108,6 +117,19 @@ func (m *Manager) GetVerifyTicket() string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.verifyTicket
+}
+
+// InvalidateComponentToken clears the cached component access token.
+func (m *Manager) InvalidateComponentToken() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.componentAccessToken = ""
+	m.tokenExpiresAt = time.Time{}
+}
+
+// InvalidateAuthorizerToken clears the cached authorizer access token for a tenant.
+func (m *Manager) InvalidateAuthorizerToken(authorizerAppID string) {
+	m.authorizerTokens.Delete(authorizerAppID)
 }
 
 // GetComponentAccessToken returns a valid component_access_token, refreshing automatically if expired.
@@ -220,6 +242,20 @@ func (m *Manager) CreatePreAuthCode(ctx context.Context) (string, error) {
 		return "", err
 	}
 
+	code, err := m.doCreatePreAuthCode(ctx, token)
+	if err != nil && isTokenInvalidErr(err) {
+		// Component token expired on WeChat server, clear cache and retry once
+		m.InvalidateComponentToken()
+		token, err = m.GetComponentAccessToken(ctx)
+		if err != nil {
+			return "", err
+		}
+		return m.doCreatePreAuthCode(ctx, token)
+	}
+	return code, err
+}
+
+func (m *Manager) doCreatePreAuthCode(ctx context.Context, token string) (string, error) {
 	reqURL := fmt.Sprintf("%s?component_access_token=%s", m.createPreAuthCodeEndpoint, token)
 	reqBody := map[string]string{
 		"component_appid": m.componentAppID,
@@ -266,6 +302,19 @@ func (m *Manager) ExchangeAuthCode(ctx context.Context, authCode string) (*Autho
 		return nil, err
 	}
 
+	info, err := m.doExchangeAuthCode(ctx, token, authCode)
+	if err != nil && isTokenInvalidErr(err) {
+		m.InvalidateComponentToken()
+		token, err = m.GetComponentAccessToken(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return m.doExchangeAuthCode(ctx, token, authCode)
+	}
+	return info, err
+}
+
+func (m *Manager) doExchangeAuthCode(ctx context.Context, token, authCode string) (*AuthorizerAuthInfo, error) {
 	reqURL := fmt.Sprintf("%s?component_access_token=%s", m.queryAuthEndpoint, token)
 	reqBody := map[string]string{
 		"component_appid":    m.componentAppID,
@@ -313,4 +362,126 @@ func (m *Manager) ExchangeAuthCode(ctx context.Context, authCode string) (*Autho
 		ExpiresIn:              res.AuthorizationInfo.ExpiresIn,
 		AuthorizerRefreshToken: res.AuthorizationInfo.AuthorizerRefreshToken,
 	}, nil
+}
+
+// RefreshAuthorizerToken requests a fresh authorizer_access_token from WeChat using authorizer_refresh_token.
+func (m *Manager) RefreshAuthorizerToken(ctx context.Context, authorizerAppID, authorizerRefreshToken string) (*AuthorizerAuthInfo, error) {
+	token, err := m.GetComponentAccessToken(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	info, err := m.doRefreshAuthorizerToken(ctx, token, authorizerAppID, authorizerRefreshToken)
+	if err != nil && isTokenInvalidErr(err) {
+		m.InvalidateComponentToken()
+		token, err = m.GetComponentAccessToken(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return m.doRefreshAuthorizerToken(ctx, token, authorizerAppID, authorizerRefreshToken)
+	}
+	return info, err
+}
+
+func (m *Manager) doRefreshAuthorizerToken(ctx context.Context, componentToken, authorizerAppID, authorizerRefreshToken string) (*AuthorizerAuthInfo, error) {
+	reqURL := fmt.Sprintf("%s?component_access_token=%s", m.refreshAuthorizerTokenEndpoint, componentToken)
+	reqBody := map[string]string{
+		"component_appid":          m.componentAppID,
+		"authorizer_appid":         authorizerAppID,
+		"authorizer_refresh_token": authorizerRefreshToken,
+	}
+	payload, err := json.Marshal(reqBody)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, bytes.NewReader(payload))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := m.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var res struct {
+		AuthorizerAccessToken  string `json:"authorizer_access_token"`
+		ExpiresIn              int64  `json:"expires_in"`
+		AuthorizerRefreshToken string `json:"authorizer_refresh_token"`
+		ErrCode                int    `json:"errcode"`
+		ErrMsg                 string `json:"errmsg"`
+	}
+	if err := json.Unmarshal(body, &res); err != nil {
+		return nil, err
+	}
+	if res.ErrCode != 0 {
+		return nil, fmt.Errorf("wechat component: refresh authorizer_token failed [errcode=%d, errmsg=%s]", res.ErrCode, res.ErrMsg)
+	}
+
+	return &AuthorizerAuthInfo{
+		AuthorizerAppID:        authorizerAppID,
+		AuthorizerAccessToken:  res.AuthorizerAccessToken,
+		ExpiresIn:              res.ExpiresIn,
+		AuthorizerRefreshToken: res.AuthorizerRefreshToken,
+	}, nil
+}
+
+// GetAuthorizerAccessToken returns a valid authorizer_access_token, refreshing automatically if expired.
+// Multiple concurrent calls for the same tenant are deduplicated using singleflight.
+func (m *Manager) GetAuthorizerAccessToken(ctx context.Context, authorizerAppID, authorizerRefreshToken string) (string, error) {
+	if val, ok := m.authorizerTokens.Load(authorizerAppID); ok {
+		item := val.(*cachedAuthorizerToken)
+		if time.Now().Before(item.expiresAt) {
+			return item.token, nil
+		}
+	}
+
+	sfKey := "authorizer_token:" + authorizerAppID
+	v, err, _ := m.sf.Do(sfKey, func() (any, error) {
+		// Double check under cache
+		if val, ok := m.authorizerTokens.Load(authorizerAppID); ok {
+			item := val.(*cachedAuthorizerToken)
+			if time.Now().Before(item.expiresAt) {
+				return item.token, nil
+			}
+		}
+
+		info, err := m.RefreshAuthorizerToken(ctx, authorizerAppID, authorizerRefreshToken)
+		if err != nil {
+			return "", err
+		}
+
+		buffer := 5 * time.Minute
+		if info.ExpiresIn <= 300 {
+			buffer = 10 * time.Second
+		}
+		expiresAt := time.Now().Add(time.Duration(info.ExpiresIn)*time.Second - buffer)
+
+		m.authorizerTokens.Store(authorizerAppID, &cachedAuthorizerToken{
+			token:     info.AuthorizerAccessToken,
+			expiresAt: expiresAt,
+		})
+
+		return info.AuthorizerAccessToken, nil
+	})
+
+	if err != nil {
+		return "", err
+	}
+	return v.(string), nil
+}
+
+func isTokenInvalidErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), "40001") || strings.Contains(err.Error(), "invalid credential")
 }

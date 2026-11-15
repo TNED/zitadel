@@ -11,7 +11,7 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
-	"sort"
+	"io"
 	"strings"
 )
 
@@ -68,11 +68,29 @@ func NewWebhookHandler(componentAppID, token, encodingAESKey string) (*WebhookHa
 }
 
 // VerifySignature validates SHA1(sort(token, timestamp, nonce, encryptedMsg)) == msgSignature.
+// Optimized with in-place sorting and zero heap allocations.
 func (h *WebhookHandler) VerifySignature(msgSignature, timestamp, nonce, encryptedMsg string) bool {
-	strs := []string{h.token, timestamp, nonce, encryptedMsg}
-	sort.Strings(strs)
+	strs := [4]string{h.token, timestamp, nonce, encryptedMsg}
+	if strs[0] > strs[1] {
+		strs[0], strs[1] = strs[1], strs[0]
+	}
+	if strs[2] > strs[3] {
+		strs[2], strs[3] = strs[3], strs[2]
+	}
+	if strs[0] > strs[2] {
+		strs[0], strs[2] = strs[2], strs[0]
+	}
+	if strs[1] > strs[3] {
+		strs[1], strs[3] = strs[3], strs[1]
+	}
+	if strs[1] > strs[2] {
+		strs[1], strs[2] = strs[2], strs[1]
+	}
+
 	hSha := sha1.New()
-	_, _ = hSha.Write([]byte(strings.Join(strs, "")))
+	for _, s := range strs {
+		_, _ = io.WriteString(hSha, s)
+	}
 	calculated := hex.EncodeToString(hSha.Sum(nil))
 	return strings.EqualFold(calculated, msgSignature)
 }
@@ -145,6 +163,21 @@ func (h *WebhookHandler) HandleEvent(msgSignature, timestamp, nonce string, rawX
 	}
 
 	return &event, nil
+}
+
+// DispatchEvent decrypts, parses, and automatically updates the Manager's verify ticket
+// if the event is a component_verify_ticket push.
+func (h *WebhookHandler) DispatchEvent(msgSignature, timestamp, nonce string, rawXML []byte, mgr *Manager) (*PushEvent, error) {
+	event, err := h.HandleEvent(msgSignature, timestamp, nonce, rawXML)
+	if err != nil {
+		return nil, err
+	}
+
+	if mgr != nil && event.InfoType == "component_verify_ticket" && event.ComponentVerifyTicket != "" {
+		mgr.SetVerifyTicket(event.ComponentVerifyTicket)
+	}
+
+	return event, nil
 }
 
 func pkcs7Unpad(data []byte) ([]byte, error) {
