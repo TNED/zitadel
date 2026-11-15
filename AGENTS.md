@@ -13,7 +13,6 @@ ZITADEL is an open-source Identity Management System (IAM) written in Go. It pro
 - **`internal/`**: Backend domain and service logic. See `internal/AGENTS.md`.
   - **`storage/`**: Pluggable storage SPI supporting 7 relational databases (SQLite, MySQL, PostgreSQL, MSSQL, Oracle, DSQL, HeatWave) and multi-cloud NoSQL (DynamoDB, Firestore).
 - **`proto/`**: API definitions. See `proto/AGENTS.md`.
-- **`deploy/`**: Deployment setups (e.g. `deploy/compose/`).
 
 ## Technology Stack & Conventions
 - **Orchestration**: Makefile is used for build and task orchestration.
@@ -74,19 +73,10 @@ If a translation is requested for a language not listed above, follow these prio
 
 ### 5. Deployment Targets
 
-ZITADEL supports multiple deployment methods. Each has its own directory and conventions:
-
-| Target | Location | Status | Notes |
-|--------|----------|--------|-------|
-| Docker Compose | `deploy/compose/` | Supported | Single-node, graduated from quickstart to semi-production. See `deploy/compose/AGENTS.md` for directory-specific rules. |
-| Kubernetes (Helm) | External ([zitadel-charts](https://github.com/zitadel/zitadel-charts)) | Supported | Official Helm chart for production workloads. |
-| apt/rpm packages | Planned | Not yet available | Future packaging target. |
-
-When generating deployment-related content:
-- Docker Compose is the recommended path for **getting started** and **homelab/single-node** deployments
-- Kubernetes is the recommended path for **production** workloads
-- Always reference the correct deployment method for the user's context
-- The same `ZITADEL_*` environment variable model applies across all deployment methods
+ZITADEL supports containerized deployments and orchestration:
+- **Container / Dockerfile**: Pure Scratch image built via repository `Dockerfile` and `make docker`.
+- **Kubernetes (Helm)**: External ([zitadel-charts](https://github.com/zitadel/zitadel-charts)).
+- The same `ZITADEL_*` environment variable model applies across all deployment methods.
 
 ## Command Rules
 Run commands from the repository root using Makefile targets:

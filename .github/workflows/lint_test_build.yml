@@ -69,12 +69,3 @@ jobs:
           name: api-integration-test-race-logs
           path: |
             .artifacts/api-test-integration/race.log.*
-      - name: Upload Functional UI Test Artifacts
-        uses: actions/upload-artifact@v4
-        if: failure() || cancelled()
-        with:
-          name: functional-ui-tests
-          path: |
-            tests/functional-ui/cypress/screenshots
-            tests/functional-ui/cypress/videos
-            tests/functional-ui/cypress/results

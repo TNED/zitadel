@@ -8,20 +8,17 @@ ARG BINARY=zitadel
 
 RUN apt-get update && apt-get install ca-certificates -y
 
-COPY entrypoint.sh /app/entrypoint.sh
 COPY ./.artifacts/bin/${TARGETPLATFORM}/${BINARY} /app/zitadel
 
 RUN useradd -s "" --home / zitadel && \
     chown zitadel /app/zitadel && \
-    chmod +x /app/zitadel && \
-    chown zitadel /app/entrypoint.sh && \
-    chmod +x /app/entrypoint.sh
+    chmod +x /app/zitadel
 
 WORKDIR /app
 ENV PATH="/app:${PATH}"
 
 USER zitadel
-ENTRYPOINT ["/app/entrypoint.sh"]
+ENTRYPOINT ["/app/zitadel"]
 
 # Final stage: Creates a minimal container image with just the Zitadel binary and necessary files
 FROM scratch AS final

@@ -47,26 +47,21 @@ test-integration:
 .PHONY: lint
 lint:
 	@echo "Running golangci-lint..."
-	golangci-lint run --timeout=15m --config=./.golangci.yaml
+	golangci-lint run --timeout=15m
 
 .PHONY: lint-fix
 lint-fix:
-	golangci-lint run --fix --config=./.golangci.yaml
+	golangci-lint run --fix
 
 ## 代码生成
 .PHONY: generate
-generate: generate-statik generate-stubs
+generate: generate-statik
 
 .PHONY: generate-statik
 generate-statik:
 	@echo "Generating statik assets..."
 	$(GO) generate internal/statik/generate.go
 	$(GO) generate internal/notification/statik/generate.go
-
-.PHONY: generate-stubs
-generate-stubs:
-	@echo "Generating protobuf and connect stubs with buf..."
-	buf generate proto
 
 ## Docker 镜像打包
 .PHONY: docker
