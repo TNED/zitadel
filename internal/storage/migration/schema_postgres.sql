@@ -65,6 +65,8 @@ CREATE TABLE IF NOT EXISTS zitadel_users (
     gender VARCHAR(32),
     user_type VARCHAR(32) NOT NULL DEFAULT 'human',
     state VARCHAR(32) NOT NULL DEFAULT 'active',
+    password_hash VARCHAR(255),
+    metadata JSONB,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     CONSTRAINT uq_instance_org_username UNIQUE(instance_id, org_id, username)

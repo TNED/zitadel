@@ -16,12 +16,14 @@ CREATE INDEX IF NOT EXISTS idx_sessions_expires ON zitadel_sessions(expires_at);
 CREATE TABLE IF NOT EXISTS zitadel_audit_logs (
     id VARCHAR(64) PRIMARY KEY,
     instance_id VARCHAR(64) NOT NULL,
-    aggregate_type VARCHAR(64) NOT NULL,
-    aggregate_id VARCHAR(64) NOT NULL,
-    event_type VARCHAR(64) NOT NULL,
-    editor_user VARCHAR(64),
-    payload TEXT,
+    actor_id VARCHAR(64) NOT NULL,
+    action VARCHAR(64) NOT NULL,
+    resource_type VARCHAR(64) NOT NULL,
+    resource_id VARCHAR(64) NOT NULL,
+    status VARCHAR(32) NOT NULL,
+    details TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-CREATE INDEX IF NOT EXISTS idx_audit_instance_agg ON zitadel_audit_logs(instance_id, aggregate_type, aggregate_id);
+CREATE INDEX IF NOT EXISTS idx_audit_instance_actor ON zitadel_audit_logs(instance_id, actor_id);
+CREATE INDEX IF NOT EXISTS idx_audit_instance_resource ON zitadel_audit_logs(instance_id, resource_type, resource_id);
 CREATE INDEX IF NOT EXISTS idx_audit_created ON zitadel_audit_logs(created_at);

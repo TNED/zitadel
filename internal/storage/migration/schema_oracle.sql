@@ -70,6 +70,8 @@ CREATE TABLE IF NOT EXISTS zitadel_users (
     gender VARCHAR2(32),
     user_type VARCHAR2(32) DEFAULT 'human' NOT NULL,
     state VARCHAR2(32) DEFAULT 'active' NOT NULL,
+    password_hash VARCHAR2(255),
+    metadata JSON,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT SYSTIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT SYSTIMESTAMP,
     CONSTRAINT uq_instance_org_username UNIQUE (instance_id, org_id, username),
@@ -135,12 +137,14 @@ CREATE INDEX IF NOT EXISTS idx_sessions_expires ON zitadel_sessions(expires_at);
 CREATE TABLE IF NOT EXISTS zitadel_audit_logs (
     id VARCHAR2(64) PRIMARY KEY,
     instance_id VARCHAR2(64) NOT NULL,
-    aggregate_type VARCHAR2(64) NOT NULL,
-    aggregate_id VARCHAR2(64) NOT NULL,
-    event_type VARCHAR2(64) NOT NULL,
-    editor_user VARCHAR2(64),
-    payload CLOB,
+    actor_id VARCHAR2(64) NOT NULL,
+    action VARCHAR2(64) NOT NULL,
+    resource_type VARCHAR2(64) NOT NULL,
+    resource_id VARCHAR2(64) NOT NULL,
+    status VARCHAR2(32) NOT NULL,
+    details CLOB,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT SYSTIMESTAMP
 );
-CREATE INDEX IF NOT EXISTS idx_audit_inst_agg ON zitadel_audit_logs(instance_id, aggregate_type, aggregate_id);
+CREATE INDEX IF NOT EXISTS idx_audit_inst_actor ON zitadel_audit_logs(instance_id, actor_id);
+CREATE INDEX IF NOT EXISTS idx_audit_inst_resource ON zitadel_audit_logs(instance_id, resource_type, resource_id);
 CREATE INDEX IF NOT EXISTS idx_audit_created ON zitadel_audit_logs(created_at);

@@ -47,3 +47,31 @@ func TestMigrationRunnerOracle26ai(t *testing.T) {
 		t.Fatalf("Oracle 26ai migration failed: %v", err)
 	}
 }
+
+func TestSchemaDDLConsistency(t *testing.T) {
+	dialects := []storage.Dialect{
+		storage.DialectSQLite,
+		storage.DialectPostgres,
+		storage.DialectMySQL,
+		storage.DialectMSSQL,
+		storage.DialectDSQL,
+		storage.DialectOracle26ai,
+	}
+
+	for _, d := range dialects {
+		t.Run(string(d), func(t *testing.T) {
+			db, mock, err := sqlmock.New()
+			if err != nil {
+				t.Fatalf("failed to open sqlmock: %v", err)
+			}
+			defer db.Close()
+
+			mock.ExpectExec(".*").WillReturnResult(sqlmock.NewResult(0, 0))
+
+			runner := migration.NewRunner(db, d).SetPureRelational(true)
+			if err := runner.Run(context.Background()); err != nil {
+				t.Fatalf("migration failed for dialect %s: %v", d, err)
+			}
+		})
+	}
+}

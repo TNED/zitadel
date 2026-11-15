@@ -82,6 +82,8 @@ BEGIN
         gender NVARCHAR(32),
         user_type NVARCHAR(32) NOT NULL DEFAULT 'human',
         state NVARCHAR(32) NOT NULL DEFAULT 'active',
+        password_hash NVARCHAR(255),
+        metadata NVARCHAR(MAX),
         created_at DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET(),
         updated_at DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET(),
         CONSTRAINT uq_instance_org_username UNIQUE (instance_id, org_id, username)

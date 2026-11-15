@@ -2,6 +2,8 @@ package storage
 
 import (
 	"database/sql"
+	"errors"
+	"io"
 
 	"github.com/zitadel/zitadel/internal/storage/relational"
 	"github.com/zitadel/zitadel/internal/storage/relational/core"
@@ -44,8 +46,21 @@ func (e *DefaultEngine) Audit() AuditRepository {
 }
 
 func (e *DefaultEngine) Close() error {
-	if e.db != nil {
-		return e.db.Close()
+	var errs []error
+	if closer, ok := e.sessionsRepo.(io.Closer); ok {
+		if err := closer.Close(); err != nil {
+			errs = append(errs, err)
+		}
 	}
-	return nil
+	if closer, ok := e.auditRepo.(io.Closer); ok {
+		if err := closer.Close(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if e.db != nil {
+		if err := e.db.Close(); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
 }

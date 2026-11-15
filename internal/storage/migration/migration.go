@@ -118,24 +118,28 @@ func (r *Runner) executeScript(ctx context.Context, script string) error {
 }
 
 func (r *Runner) recordVersion(ctx context.Context, version int, description string) error {
-	query := `INSERT INTO zitadel_schema_version (version, description) VALUES (?, ?) ON CONFLICT DO NOTHING;`
-	if r.dialect == storage.DialectPostgres || r.dialect == storage.DialectDSQL || r.dialect == storage.DialectSQLite {
-		query = `INSERT INTO zitadel_schema_version (version, description) VALUES ($1, $2) ON CONFLICT (version) DO NOTHING;`
+	if r.dialect == storage.DialectPostgres || r.dialect == storage.DialectDSQL {
+		query := `INSERT INTO zitadel_schema_version (version, description) VALUES ($1, $2) ON CONFLICT (version) DO NOTHING;`
+		_, err := r.db.ExecContext(ctx, query, version, description)
+		return err
+	} else if r.dialect == storage.DialectSQLite {
+		query := `INSERT INTO zitadel_schema_version (version, description) VALUES (?, ?) ON CONFLICT (version) DO NOTHING;`
 		_, err := r.db.ExecContext(ctx, query, version, description)
 		return err
 	} else if r.dialect == storage.DialectMySQL {
-		query = `INSERT IGNORE INTO zitadel_schema_version (version, description) VALUES (?, ?);`
+		query := `INSERT IGNORE INTO zitadel_schema_version (version, description) VALUES (?, ?);`
 		_, err := r.db.ExecContext(ctx, query, version, description)
 		return err
 	} else if r.dialect == storage.DialectMSSQL {
-		query = `IF NOT EXISTS (SELECT 1 FROM zitadel_schema_version WHERE version = @p1) INSERT INTO zitadel_schema_version (version, description) VALUES (@p1, @p2);`
+		query := `IF NOT EXISTS (SELECT 1 FROM zitadel_schema_version WHERE version = @p1) INSERT INTO zitadel_schema_version (version, description) VALUES (@p1, @p2);`
 		_, err := r.db.ExecContext(ctx, query, version, description)
 		return err
 	} else if r.isOracleDialect() {
-		query = `MERGE INTO zitadel_schema_version tgt USING (SELECT :1 AS version, :2 AS description FROM dual) src ON (tgt.version = src.version) WHEN NOT MATCHED THEN INSERT (version, description) VALUES (src.version, src.description);`
+		query := `MERGE INTO zitadel_schema_version tgt USING (SELECT :1 AS version, :2 AS description FROM dual) src ON (tgt.version = src.version) WHEN NOT MATCHED THEN INSERT (version, description) VALUES (src.version, src.description);`
 		_, err := r.db.ExecContext(ctx, query, version, description)
 		return err
 	}
+	query := `INSERT INTO zitadel_schema_version (version, description) VALUES (?, ?) ON CONFLICT DO NOTHING;`
 	_, err := r.db.ExecContext(ctx, query, version, description)
 	return err
 }

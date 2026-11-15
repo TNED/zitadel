@@ -70,6 +70,8 @@ CREATE TABLE IF NOT EXISTS zitadel_users (
     gender TEXT,
     user_type TEXT NOT NULL DEFAULT 'human',
     state TEXT NOT NULL DEFAULT 'active',
+    password_hash TEXT,
+    metadata TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (instance_id) REFERENCES zitadel_instances(id) ON DELETE CASCADE,

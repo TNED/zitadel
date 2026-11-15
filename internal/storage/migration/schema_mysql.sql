@@ -70,6 +70,8 @@ CREATE TABLE IF NOT EXISTS zitadel_users (
     gender VARCHAR(32),
     user_type VARCHAR(32) NOT NULL DEFAULT 'human',
     state VARCHAR(32) NOT NULL DEFAULT 'active',
+    password_hash VARCHAR(255),
+    metadata JSON,
     created_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP(6),
     updated_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
     INDEX idx_users_instance_org (instance_id, org_id),
