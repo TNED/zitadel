@@ -153,7 +153,7 @@ type HumanPasswordCheckWriteModel interface {
 func (c *Commands) checkCurrentPassword(
 	newPassword, newEncodedPassword, currentPassword string,
 	wm HumanPasswordCheckWriteModel,
-	tarpit func(failedAttempts uint64),
+	tarpit func(ctx context.Context, failedAttempts uint64),
 ) setPasswordVerification {
 	return func(ctx context.Context) (_ string, err error) {
 		verify := func(hash, password string) (string, error) {
@@ -372,7 +372,7 @@ func (c *Commands) HumanCheckPassword(ctx context.Context, orgID, userID, passwo
 	if err != nil {
 		return err
 	}
-	var tarpit func(failedAttempts uint64)
+	var tarpit func(ctx context.Context, failedAttempts uint64)
 	if !loginPolicy.IgnoreUnknownUsernames {
 		tarpit = c.tarpit
 	}
@@ -398,12 +398,11 @@ func passwordAllowedLoginPolicy(ctx context.Context, getPolicy func(context.Cont
 	return loginPolicy, nil
 }
 
-func checkPassword(ctx context.Context, userID, password string, es *eventstore.Eventstore, hasher *crypto.Hasher, optionalAuthRequestInfo *user.AuthRequestInfo, tarpit func(failedAttempts uint64)) ([]eventstore.Command, error) {
+func checkPassword(ctx context.Context, userID, password string, es *eventstore.Eventstore, hasher *crypto.Hasher, optionalAuthRequestInfo *user.AuthRequestInfo, tarpit func(ctx context.Context, failedAttempts uint64)) ([]eventstore.Command, error) {
 	if userID == "" {
 		return nil, zerrors.ThrowPreconditionFailed(nil, "COMMAND-Sfw3f", "Errors.User.UserIDMissing")
 	}
-	wm := NewHumanPasswordWriteModel(userID, "")
-	err := es.FilterToQueryReducer(ctx, wm)
+	wm, err := loadHumanPasswordWriteModel(ctx, es, userID, "")
 	if err != nil {
 		return nil, err
 	}
@@ -418,7 +417,7 @@ func verifyPasswordWithLockoutPolicy(
 	es *eventstore.Eventstore,
 	verify func(hash string, password string) (newHash string, err error),
 	optionalAuthRequestInfo *user.AuthRequestInfo,
-	tarpit func(failedAttempts uint64),
+	tarpit func(ctx context.Context, failedAttempts uint64),
 ) ([]eventstore.Command, string, error) {
 	if !wm.GetUserState().Exists() {
 		return nil, "", zerrors.ThrowPreconditionFailed(nil, "COMMAND-3n77z", "Errors.User.NotFound")
@@ -471,7 +470,7 @@ func verifyPasswordWithLockoutPolicy(
 	// we do not slow down the response time with a tarpit
 	// since this would leak the user existence
 	if tarpit != nil {
-		tarpit(wm.GetPasswordCheckFailedCount() + 1)
+		tarpit(ctx, wm.GetPasswordCheckFailedCount()+1)
 	}
 	return commands, "", err
 }
@@ -480,12 +479,7 @@ func (c *Commands) passwordWriteModel(ctx context.Context, userID, resourceOwner
 	ctx, span := tracing.NewSpan(ctx)
 	defer func() { span.EndWithError(err) }()
 
-	writeModel = NewHumanPasswordWriteModel(userID, resourceOwner)
-	err = c.eventstore.FilterToQueryReducer(ctx, writeModel)
-	if err != nil {
-		return nil, err
-	}
-	return writeModel, nil
+	return loadHumanPasswordWriteModel(ctx, c.eventstore, userID, resourceOwner)
 }
 
 func convertLoginPasswapErr(passwordCheckFailedCount uint64, err error) error {
